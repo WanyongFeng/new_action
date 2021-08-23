@@ -99,8 +99,8 @@ class Env(object):
 				return ig
 
 		def step(self, action, prediction, probas):
-				logger.info(f'action:  {action}')
-				logger.info(f'probas:  {probas}')
+				# logger.info(f'action:  {action}')
+				# logger.info(f'probas:  {probas}')
 				for i, vals in enumerate(self.x):
 					for j, val in enumerate(vals):
 						if self.x[i][j] == 0:
@@ -116,7 +116,7 @@ class Env(object):
 								act = np.random.choice(self.terminal_act + 1, p=probas[idx])
 								action[idx] = act
 								
-				logger.info(f'action:  {action}')		  			 
+				# logger.info(f'action:  {action}')		  			 
 				empty = action == -1
 				terminal = action == self.terminal_act
 				normal = np.logical_and(~empty, ~terminal)
