@@ -267,6 +267,7 @@ class PPOPolicy(object):
             episode_reward += r
             s, m = s_next, m_next
         logger.info('rollout finished.')
+        logger.info(f'm:  {m}')
 
         logger.debug(f'mask:\n{np.concatenate(masks)}')
         logger.debug(f'state:\n{np.concatenate(obs)}')
