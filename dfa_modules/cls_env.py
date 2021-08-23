@@ -101,8 +101,8 @@ class Env(object):
 		def step(self, action, prediction, probas):
 				logger.info(f'action:  {action}')
 				logger.info(f'probas:  {probas}')
-				for i, proba in enumerate(probas):
-					for j, val in enumerate(proba):
+				for i, vals in enumerate(self.x):
+					for j, val in enumerate(vals):
 						if self.x[i][j] == 0:
 							probas[i][j] == 0
 				sum_of_rows = probas.sum(axis = 1)
@@ -144,7 +144,7 @@ class Env(object):
 						acquisition_cost = self.cost[a]
 						info_gain = self._info_gain(x, old_m, m, y)
 						reward[normal] = info_gain - acquisition_cost
-						
+				logger.info(f'done:  {done}')		
 				return self.x * self.m, self.m.copy(), reward, done
 
 		def peek(self, state, mask):
