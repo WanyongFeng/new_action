@@ -107,8 +107,8 @@ class Env(object):
 							probas[i][j] == 0
 				sum_of_rows = probas.sum(axis = 1)
 				probas = probas / sum_of_rows[:, np.newaxis]
-				for i, proba in probas:
-					if np.count_nonzero(proba) == np.count_nonzero(self.m[i]) and action[i] > -1 and action[i] < self.terminal_act:
+				for i, proba in enumerate(probas):
+					if np.count_nonzero(proba[:proba.size - 1]) == np.count_nonzero(self.m[i]) and action[i] > -1 and action[i] < self.terminal_act:
 						action[i] = self.terminal_act
 
 				for idx, act in enumerate(action):
