@@ -256,7 +256,7 @@ class PPOPolicy(object):
             logger.debug(f'action: {a_orig}')
             a = a_orig.copy()
             a[done] = -1 # empty action
-            s_next, m_next, r, done = self.env.step(a, p, probas)
+            s_next, m_next, r, done, x = self.env.step(a, p, probas)
             logger.debug(f'done: {done}')
             obs.append(s)
             masks.append(m)
@@ -474,6 +474,7 @@ class PPOPolicy(object):
         transitions = []
         init = True
         num_batches = 0
+        x_vals = []
         while True: # iterate over dataset
             num_batches += 1
             s, m = self.env.reset(loop=False, init=init)
@@ -485,18 +486,22 @@ class PPOPolicy(object):
             num_acquisition = np.zeros([s.shape[0]], dtype=np.float32)
             episode_reward = np.zeros([s.shape[0]], dtype=np.float32)
             transition = np.zeros_like(m)
+            x_val = np.zeros_like(m)
             done = np.zeros([s.shape[0]], dtype=np.bool)
             while not np.all(done):
                 f = self.env.peek(s, m)
                 a, p, probas = self.act(s, m, f, hard=hard)
                 a[done] = -1
-                s, m, r, done = self.env.step(a, p, probas)
+                s, m, r, done, x = self.env.step(a, p, probas)
                 episode_reward += r
                 num_acquisition += ~done
                 transition += m
+                x_val = x
             metrics['episode_reward'].append(episode_reward)
             metrics['num_acquisition'].append(num_acquisition)
             transitions.append(transition.astype(np.int32))
+            x_vals.append(x_val)
+
             # evaluate the final state
             eval_dict = self.env.evaluate(s, m, p)
             for k, v in eval_dict.items():
@@ -523,4 +528,4 @@ class PPOPolicy(object):
         for k, v in average_metrics.items():
             logger.info(f'{k}: {v}')
 
-        return {'metrics': metrics, 'transitions': transitions}
+        return {'metrics': metrics, 'transitions': transitions, 'x_vals': x_vals}
