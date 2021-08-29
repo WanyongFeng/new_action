@@ -1,5 +1,5 @@
 {
-    "dfile": "./data/cube.pkl",
+    "dfile": "./data/cubel10.pkl",
     "dimension": 10,
     "act_size": 11,
     "n_target": 8,
