@@ -1,7 +1,7 @@
 {
-    "dfile": "./data/cubel10.pkl",
-    "dimension": 10,
-    "act_size": 11,
+    "dfile": "./data/cube.pkl",
+    "dimension": 20,
+    "act_size": 21,
     "n_target": 8,
     "episode_workers": 500,
     "acquisition_cost": 0.05,

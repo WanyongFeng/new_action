@@ -246,6 +246,10 @@ class PPOPolicy(object):
         rewards = []
         flags = []
         episode_reward = np.zeros([s.shape[0]], dtype=np.float32)
+        # bucket = np.array([{}] * self.hps.episode_workers)
+        bucket = []
+        for i in range(self.hps.episode_workers):
+            bucket.append({})
 
         logger.info('start rollout.')
         done = np.zeros([s.shape[0]], dtype=np.bool)
@@ -256,7 +260,7 @@ class PPOPolicy(object):
             logger.debug(f'action: {a_orig}')
             a = a_orig.copy()
             a[done] = -1 # empty action
-            s_next, m_next, r, done, x = self.env.step(a, p, probas)
+            s_next, m_next, r, done, x, bucket_next = self.env.step(a, p, probas, bucket)
             logger.debug(f'done: {done}')
             obs.append(s)
             masks.append(m)
@@ -266,8 +270,8 @@ class PPOPolicy(object):
             flags.append(done)
             episode_reward += r
             s, m = s_next, m_next
+            bucket = bucket_next
         logger.info('rollout finished.')
-        logger.info(f'm:  {m}')
 
         logger.debug(f'mask:\n{np.concatenate(masks)}')
         logger.debug(f'state:\n{np.concatenate(obs)}')
@@ -475,6 +479,7 @@ class PPOPolicy(object):
         init = True
         num_batches = 0
         x_vals = []
+        buckets = []
         while True: # iterate over dataset
             num_batches += 1
             s, m = self.env.reset(loop=False, init=init)
@@ -488,19 +493,24 @@ class PPOPolicy(object):
             transition = np.zeros_like(m)
             x_val = np.zeros_like(m)
             done = np.zeros([s.shape[0]], dtype=np.bool)
+            bucket = []
+            for i in range(self.hps.episode_workers):
+                bucket.append({})
             while not np.all(done):
                 f = self.env.peek(s, m)
                 a, p, probas = self.act(s, m, f, hard=hard)
                 a[done] = -1
-                s, m, r, done, x = self.env.step(a, p, probas)
+                s, m, r, done, x, bucket_next = self.env.step(a, p, probas, bucket)
                 episode_reward += r
                 num_acquisition += ~done
                 transition += m
                 x_val = x
+                bucket = bucket_next
             metrics['episode_reward'].append(episode_reward)
             metrics['num_acquisition'].append(num_acquisition)
             transitions.append(transition.astype(np.int32))
             x_vals.append(x_val)
+            buckets.append(bucket)
 
             # evaluate the final state
             eval_dict = self.env.evaluate(s, m, p)
@@ -528,4 +538,4 @@ class PPOPolicy(object):
         for k, v in average_metrics.items():
             logger.info(f'{k}: {v}')
 
-        return {'metrics': metrics, 'transitions': transitions, 'x_vals': x_vals}
+        return {'metrics': metrics, 'transitions': transitions, 'x_vals': x_vals, 'buckets': buckets}

@@ -8,6 +8,7 @@ from scipy.stats import entropy
 from utils.hparams import HParams
 from models import get_model
 from datasets.cube import Dataset
+import pickle
 
 logger = logging.getLogger()
 
@@ -44,6 +45,19 @@ class Env(object):
 								self.cost = self.dataset.cost
 						else:
 								self.cost = np.array([self.hps.acquisition_cost] * self.hps.dimension, dtype=np.float32)
+								
+				with open(hps.dfile, 'rb') as f:
+					data = pickle.load(f)
+					train_x, train_y = data['train']
+					valid_x, valid_y = data['valid']
+					test_x, test_y = data['test']
+					train_x = np.concatenate((train_x, valid_x))
+					train_x = np.concatenate((train_x, test_x))
+					self.maxcols = np.amax(train_x, axis = 0)
+					self.mincols = np.amin(train_x, axis = 0)
+					logger.info(f'maxcols:  {self.maxcols}')
+					logger.info(f'maxcols:  {self.mincols}')
+
 
 		def reset(self, loop=True, init=False):
 				'''
@@ -98,7 +112,7 @@ class Env(object):
 
 				return ig
 
-		def step(self, action, prediction, probas):
+		def step(self, action, prediction, probas, bucket):
 				# logger.info(f'action:  {action}')
 				# logger.info(f'probas:  {probas}')
 				# for i, vals in enumerate(self.x):
@@ -116,7 +130,7 @@ class Env(object):
 				# 				act = np.random.choice(self.terminal_act + 1, p=probas[idx])
 				# 				action[idx] = act
 								
-				# logger.info(f'action:  {action}')		  			 
+				logger.info(f'action:  {action}')		  			 
 				empty = action == -1
 				terminal = action == self.terminal_act
 				normal = np.logical_and(~empty, ~terminal)
@@ -144,8 +158,29 @@ class Env(object):
 						acquisition_cost = self.cost[a]
 						info_gain = self._info_gain(x, old_m, m, y)
 						reward[normal] = info_gain - acquisition_cost
-	
-				return self.x * self.m, self.m.copy(), reward, done, self.x
+
+				
+				for idx, act in enumerate(action):
+					if act > -1 and act < self.terminal_act:
+						max_val = self.maxcols[act]
+						min_val = self.mincols[act]
+						range_val = max_val - min_val
+						unit = range_val / 10
+						count = 9
+						while (count >= 0):
+							max_val = max_val - unit
+							if self.x[idx][act] >= max_val:
+								logger.info(f'idx:  {idx}')
+								logger.info(f'act:  {act}')
+								if count == 0:
+									bucket[idx]["act_" + str(act) + ' ' + str(count) + "%-" + str(count + 1) + "0%"] = self.x[idx][act]
+								else:
+									bucket[idx]["act_" + str(act) + ' ' + str(count) + "0%-" + str(count + 1) + "0%"] = self.x[idx][act]
+								logger.info(f'bucket:  {bucket}')
+								break
+							count = count - 1
+
+				return self.x * self.m, self.m.copy(), reward, done, self.x, bucket
 
 		def peek(self, state, mask):
 				logits, sam, pred_sam = self.model.run(
