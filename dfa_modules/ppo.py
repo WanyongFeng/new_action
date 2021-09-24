@@ -248,7 +248,7 @@ class PPOPolicy(object):
         done = np.zeros([s.shape[0]], dtype=np.bool)
         while not np.all(done):
             logger.debug(f'mask: {m}')
-            f = self.env.peek(s, m)
+            f, temp_prob, utilityx_u, utility_y = self.env.peek(s, m)
             a_orig, p, probas = self.act(s, m, f) # [B]
             logger.debug(f'action: {a_orig}')
             a = a_orig.copy()
@@ -471,6 +471,10 @@ class PPOPolicy(object):
         init = True
         num_batches = 0
         x_vals = []
+        utilityx_us = []
+        utility_ys = []
+        probs = []
+        action_probs = []
         while True: # iterate over dataset
             num_batches += 1
             s, m = self.env.reset(loop=False, init=init)
@@ -484,8 +488,12 @@ class PPOPolicy(object):
             transition = np.zeros_like(m)
             x_val = np.zeros_like(m)
             done = np.zeros([s.shape[0]], dtype=np.bool)
+            utilityxu = []
+            utilityy = []
+            prob = []
+            action_prob = []
             while not np.all(done):
-                f = self.env.peek(s, m)
+                f, temp_prob, utilityx_u, utility_y = self.env.peek(s, m)
                 a, p, probas = self.act(s, m, f, hard=hard)
                 a[done] = -1
                 s, m, r, done, x = self.env.step(a, p, probas)
@@ -493,11 +501,19 @@ class PPOPolicy(object):
                 num_acquisition += ~done
                 transition += m
                 x_val = x
+                utilityxu.append(utilityx_u)
+                utilityy.append(utility_y)
+                prob.append(temp_prob)
+                action_prob.append(probas)
+
             metrics['episode_reward'].append(episode_reward)
             metrics['num_acquisition'].append(num_acquisition)
             transitions.append(transition.astype(np.int32))
             x_vals.append(x_val)
-
+            utilityx_us.append(utilityxu)
+            utility_ys.append(utilityy)
+            probs.append(prob)
+            action_probs.append(action_prob)
             # evaluate the final state
             eval_dict = self.env.evaluate(s, m, p)
             for k, v in eval_dict.items():
@@ -524,4 +540,10 @@ class PPOPolicy(object):
         for k, v in average_metrics.items():
             logger.info(f'{k}: {v}')
 
-        return {'metrics': metrics, 'transitions': transitions, 'x_vals': x_vals}
+        return {'metrics': metrics, 
+                'transitions': transitions, 
+                'x_vals': x_vals, 
+                'utilityx_us': utilityx_us,
+                'utility_ys': utility_ys,
+                'prediction': probs,
+                'action_probs': action_probs}

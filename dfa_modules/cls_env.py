@@ -155,9 +155,6 @@ class Env(object):
 								feed_dict={self.model.x: state,
 												   self.model.b: mask,
 												   self.model.m: np.ones_like(mask)})
-				logger.info(f'logits:  {logits}')
-				logger.info(f'sam:  {sam}')
-				logger.info(f'pred_sam:  {pred_sam}')
 
 				sam_mean = np.mean(sam, axis=1)
 				sam_std = np.std(sam, axis=1)
@@ -166,13 +163,40 @@ class Env(object):
 				temp = logits
 				with tf.Session() as sess:
 								temp = sess.run(tf.nn.softmax(logits, axis = -1))
+				temp_prob = temp.copy()
 				prob = temp
 				prob = np.max(prob, axis=-1, keepdims=True)
 				prob = np.ones_like(state) * prob
 
 				future = np.concatenate([prob, sam_mean, sam_std, pred_sam_mean, pred_sam_std], axis=-1)
-				logger.info(f'future:  {future}')
-				return future
+				
+				utilityx_u = []
+				for i in mask:
+					temp = []
+					for j in i:
+						temp.append(-100)
+					utilityx_u.append(temp)	
+				for i, ival in enumerate(sam_std):
+					for j, jval in enumerate(ival):
+						if mask[i,j] == 0:
+							utilityx_u[i][j] = np.log(sam_std[i,j] * np.sqrt(2 * np.pi)) + 1/2
+				utilityx_u = np.array(utilityx_u)
+
+				utility_y = []
+				for i in mask:
+					temp = []
+					for j in i:
+						temp.append(100)
+					utility_y.append(temp)	
+				for i, ival in enumerate(pred_sam_std):
+					for j, jval in enumerate(ival):
+						if mask[i,j] == 0:
+							utility_y[i][j] = np.log(pred_sam_std[i,j] * np.sqrt(2 * np.pi)) + 1/2
+				utility_y = np.array(utility_y)
+
+				utility_y = utilityx_u - utility_y
+
+				return future, temp_prob, utilityx_u, utility_y
 
 		def evaluate(self, state, mask, prediction):
 				acc_acflow = self.model.run(self.model.acc,
